@@ -14,16 +14,23 @@ import fraud_utils as fu
 import os
 import time
 
+"""Initialisation les constantes BAD_REQUEST à 400,
+ STATUS_OK à 200 ; NOT_FOUND à 404, SERVER_ERROR à 500."""
+ 
 BAD_REQUEST = 400
 STATUS_OK = 200
 NOT_FOUND = 404
 SERVER_ERROR = 500
+
+"""initialise notre application grâce à la bibliothèque Flask."""
 
 app = Flask(__name__)  # app
 app.static_folder = 'static'  # define static folder for css, img, js
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
+"""Recherche d'erreur en utilisant la fonction errorhandler et en lui 
+passant en paramètres les constantes BAD_REQUEST, NOT_FOUND, SERVER_ERROR ."""
 
 @app.errorhandler(BAD_REQUEST)
 def bad_request(error):
@@ -39,16 +46,22 @@ def not_found(error):
 def server_error(error):
     return make_response(jsonify({'error': 'Server error'}), SERVER_ERROR)
 
-
+#On met l’application en route.
 @app.route('/')
+
+#le serveur fonctionne correctement
 def hello():
     return "Le serveur fonctionne correctement"
 
 
 @app.route('/map')
+#retourne l’adresse du fichier dans lequel la carte est crée
 def map():
     return render_template('index.html')
 
+
+"""Test que quand l’application est connectée le client 
+l’est également sinon il est déconnecté dans les fonctions de test. """
 
 @socketio.on('connect', namespace='/fraud')
 def test_connect():
@@ -59,18 +72,16 @@ def test_connect():
 def test_disconnect():
     print('Client disconnected')
 
-
+#emet la variable my_pong au serveur
 @socketio.on('my_ping', namespace='/fraud')
 def ping_pong():
-    """Receives my_pong from the client and sends my_pong from the server"""
+   
     emit('my_pong')
 
-
+#retourne si l’url est accessible
 @app.route('/health')
 def health_check():
-    """Health end point
-    $ curl http://localhost:5000/health
-    """
+
     socketio.emit('health_signal',
                   {'data': 'HEALTH CHECK', 'note': 'OK'},
                   broadcast=True,
@@ -88,34 +99,20 @@ def manage_query(request):
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Main API end point. Predicts whether a transaction
-    is fraudulent or not using the LightGBM model.
-    The easiest way to call this end point is to use the
-    notebook fraud_detection.ipynb. The pyload is a json
-    with 30 columns, corresponding to Time, V1-V28 and Amount.
-    An example of a query is:
-    $ curl -X POST -H "Content-type: application/json" http://127.0.0.1:5000/predict -d '{"Time": 57007.0, "V1": -1.2712441917143702, "V2": 2.46267526851135, "V3": -2.85139500331783, "V4": 2.3244800653477995, "V5": -1.37224488981369, "V6": -0.948195686538643, "V7": -3.06523436172054, "V8": 1.1669269478721105, "V9": -2.2687705884481297, "V10": -4.88114292689057, "V11": 2.2551474887046297, "V12": -4.68638689759229, "V13": 0.652374668512965, "V14": -6.17428834800643, "V15": 0.594379608016446, "V16": -4.8496923870965185, "V17": -6.53652073527011, "V18": -3.11909388163881, "V19": 1.71549441975915, "V20": 0.560478075726644, "V21": 0.652941051330455, "V22": 0.0819309763507574, "V23": -0.22134783119833895, "V24": -0.5235821592333061, "V25": 0.224228161862968, "V26": 0.756334522703558, "V27": 0.632800477330469, "V28": 0.25018709275719697, "Amount": 0.01}'
-    Returns:
-        resp (json): predicted fraud probability
-    """
+   
     X = manage_query(request)
     y_pred = model.predict(X)[0]
     return make_response(jsonify({'fraud': y_pred}), STATUS_OK)
 
 
+
+#retourne  du y_pred est initialisée grâce au fichier fraud utils 
+#soketio met à jour la carte quand il ya une nouvelle fraude qui
+#est détéctée 
+
 @app.route('/predict_map', methods=['POST'])
 def predict_map():
-    """Similar end point as /predict. The difference is that
-    when a query is fraudulent, a websocket shows a location
-    in the map in real-time. To visualize the map just go to
-    http://localhost:5000/map.
-    A query can be sent using the notebook fraud_detection.ipynb
-    or curl with /predict_map end point and the same payload as
-    before. An example of the query is:
-    $ curl -X POST -H "Content-type: application/json" http://127.0.0.1:5000/predict_map -d '{"Time": 57007.0, "V1": -1.2712441917143702, "V2": 2.46267526851135, "V3": -2.85139500331783, "V4": 2.3244800653477995, "V5": -1.37224488981369, "V6": -0.948195686538643, "V7": -3.06523436172054, "V8": 1.1669269478721105, "V9": -2.2687705884481297, "V10": -4.88114292689057, "V11": 2.2551474887046297, "V12": -4.68638689759229, "V13": 0.652374668512965, "V14": -6.17428834800643, "V15": 0.594379608016446, "V16": -4.8496923870965185, "V17": -6.53652073527011, "V18": -3.11909388163881, "V19": 1.71549441975915, "V20": 0.560478075726644, "V21": 0.652941051330455, "V22": 0.0819309763507574, "V23": -0.22134783119833895, "V24": -0.5235821592333061, "V25": 0.224228161862968, "V26": 0.756334522703558, "V27": 0.632800477330469, "V28": 0.25018709275719697, "Amount": 0.01}'
-    Returns:
-        resp (json): predicted fraud probability
-    """
+   
     X = manage_query(request)
     y_pred = model.predict(X)[0]
     print("Value predicted: {}".format(y_pred))
@@ -127,7 +124,14 @@ def predict_map():
     return make_response(jsonify({'fraud': y_pred}), STATUS_OK)
 
 
-# Load the model as a global variable
+"""On initialise le nombre d’essais maximum à 120.
+Tant qu’on ne dépasse pas ce nombre d’essaie et que le serveur n’est pas en ligne la fonction renvoie que le serveur n’est pas prêt
+Si le compteur est égal au nombre max d’essais on renvoie que le maximum d’essais a été atteint.
+Sinon le serveur est prêt et on peut regarder notre résultat sur l’URL indiquée
+L’algo détermine et stocke les valeurs frauduleuses puis affiche les fraudes sur la carte grâce à json. 
+La carte est sur l’url initialisé. On utilise un compteur tant que i ne dépasse pas le nombre de point qu’on veut.
+"""
+
 max_try=120
 cpt = 0
 while cpt < max_try and not os.path.exists(fu.BASELINE_MODEL):
@@ -138,6 +142,7 @@ if cpt == max_try:
     raise Exception("Launch aborted")
 model = lgb.Booster(model_file=fu.BASELINE_MODEL)
 
+"""Dans le main on met en route le serveur et application et à la fin on les arrête. """
 if __name__ == "__main__":
     try:
         print("Server started")
